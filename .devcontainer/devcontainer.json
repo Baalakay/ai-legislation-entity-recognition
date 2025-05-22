@@ -3,6 +3,7 @@
     "dockerComposeFile": "docker-compose.yml",
     "service": "app",
     "workspaceFolder": "/workspace",
+    "updateContentCommand": "uv sync",
     "remoteUser": "vscode",
     "remoteEnv": {
         "LOCAL_WORKSPACE_FOLDER": "${containerWorkspaceFolder}",
@@ -30,7 +31,7 @@
         "ghcr.io/devcontainers-extra/features/fd:1": {},
         "ghcr.io/kreemer/features/stow:1": {},
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
-        "ghcr.io/devcontainers-extra/features/vercel-cli:1": {}
+        "ghcr.io/devcontainers/features/aws-cli:1": {}
     },
     "customizations": {
         "vscode": {
@@ -39,14 +40,7 @@
                 "terminal.integrated.profiles.linux": { "zsh": { "path": "/bin/zsh", "args": ["-l", "-i"] } },
                 "terminal.integrated.defaultProfile.osx": "zsh",
                 "terminal.integrated.profiles.osx": { "zsh": { "path": "/bin/zsh", "args": ["-l", "-i"] } },
-                "python.defaultInterpreterPath": "/usr/local/bin/python"
-                // "mypy-type-checker.enabled": true,
-                // "mypy-type-checker.path": ["/usr/local/bin/mypy"],
-                // "mypy-type-checker.args": [
-                //     "--config-file",
-                //     "backend/mypy.ini"
-                ],
-                "typescript.tsdk": "frontend/node_modules/typescript/lib"
+                // "python.defaultInterpreterPath": "/usr/local/bin/python"
             },
             "extensions": [
                 // "ms-python.mypy-type-checker",
@@ -65,9 +59,10 @@
     "mounts": [
         "source=${localEnv:HOME}${localEnv:USERPROFILE}/Documents/devcontainer_shared,target=/home/vscode/devcontainer_shared,type=bind,consistency=cache",
         "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached",
-        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.zsh_history,target=/home/vscode/.zsh_history,type=bind"
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.zsh_history,target=/home/vscode/.zsh_history,type=bind",
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.oh-my-zsh/themes,target=/home/vscode/.oh-my-zsh/themes,type=bind",
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.aws,target=/home/vscode/.aws,type=bind, consistency=cache"
     ],
     "forwardPorts": [5173, 8000, 6379, 5678],
-
     "postCreateCommand": "bash .devcontainer/post-create.sh"
 }

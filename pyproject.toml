@@ -1,7 +1,7 @@
 [project]
-name = "ai-support-agent-agno"
+name = "app"
 version = "2025.0.0"
-description = "AI-powered PDF recommendation and comparison agent"
+description = ""
 authors = [
     {name = "Blake McDonald", email = "BlakeTMcDonald@gmail.com"}
 ]
@@ -28,12 +28,22 @@ dependencies = [
     "pdfplumber",
     # Debugging
     "debugpy>=1.8.12",
+    # Jupyter and Dev Tools
+    "setuptools",
+    "jupyterlab",
+    "rich",
+    "pytest",
+    "hypothesis",
+    # Existing project dependencies
     "agno>=1.4.2",
     "cargo>=0.3",
     "toml-to-requirements>=0.3.0",
     "sqlalchemy>=2.0.40",
     "google-genai>=1.14.0",
     "ghostscript>=0.7",
+    "boto3>=1.38.19",
+    "virtualenvwrapper>=6.1.1",
+    "bat>=0.3.9",
 ]
 
 [build-system]
@@ -105,3 +115,6 @@ exclude = [
     "src/**/.pytest_cache",
     "src/**/.mypy_cache",
 ] 
+
+[tool.uv]
+package = false

@@ -3,19 +3,13 @@ set -e
 
 echo "Setting up development environment..."
 
-# Install Rye (Modern package manager replacement for pip, requirements.txt, setup.py [**Rye uses pyproject.toml in Pythom projects] ) 
-#curl -sSf https://rye.astral.sh/get | RYE_INSTALL_OPTION="--yes" RYE_TOOLCHAIN="$(which python)"  bash
-#export PATH="$HOME/.rye/shims:${PATH}"
-#echo 'source "$HOME/.rye/env"' >> ~/.bashrc
-#echo 'source "$HOME/.rye/env"' >> ~/.zshrc
-
 # Setup ZSH plugins
 echo "Setting up ZSH plugins..."
 git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 git clone https://github.com/zsh-users/zsh-completions ${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/zsh-completions
 git clone https://github.com/zsh-users/zsh-history-substring-search ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-history-substring-search
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
-
+git clone https://github.com/matthiasha/zsh-uv-env ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-uv-env
 # Setup dotfiles
 echo "Setting up dotfiles..."
 git clone https://github.com/Baalakay/.dotfiles.git ~/.dotfiles
@@ -23,12 +17,6 @@ cd ~/.dotfiles
 stow --adopt .
 git reset --hard
 cd $LOCAL_WORKSPACE_FOLDER
-
-### Project Specific Settings ####
-
-# Installs backend dependencies from pyproject.toml
-#rye sync
-uv sync
 
 # Install frontend dependencies
 if [ -d "/frontend" ]; then
@@ -39,4 +27,8 @@ if [ -d "/frontend" ]; then
     cd ..
 fi
 
-echo "Development environment setup complete!"
+echo $pwd
+# git config --global --add safe.directory ${containerWorkspaceFolder}
+
+echo "Development environment setup complete! Launch a new terminal session to begin in your devcontainer."
+
