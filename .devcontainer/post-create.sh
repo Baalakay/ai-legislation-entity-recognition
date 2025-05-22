@@ -18,6 +18,21 @@ stow --adopt .
 git reset --hard
 cd $LOCAL_WORKSPACE_FOLDER
 
+# Ensure .zshrc exists
+touch ~/.zshrc
+
+# Replace or add alias cat=batcat
+if grep -q '^alias cat=' ~/.zshrc; then
+  sed -i 's|^alias cat=.*|alias cat=batcat|' ~/.zshrc
+else
+  echo 'alias cat=batcat' >> ~/.zshrc
+fi
+
+# Add alias bat=batcat if not present
+if ! grep -q '^alias bat=batcat' ~/.zshrc; then
+  echo 'alias bat=batcat' >> ~/.zshrc
+fi
+
 # Install frontend dependencies
 if [ -d "/frontend" ]; then
     # Folder exists, run your command
