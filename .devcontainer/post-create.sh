@@ -27,8 +27,5 @@ if [ -d "/frontend" ]; then
     cd ..
 fi
 
-echo $pwd
-# git config --global --add safe.directory ${containerWorkspaceFolder}
-
 echo "Development environment setup complete! Launch a new terminal session to begin in your devcontainer."
 
