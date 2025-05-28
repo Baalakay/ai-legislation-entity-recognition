@@ -24,7 +24,7 @@ dependencies = [
     "numpy",
     "pandas",
     # PDF Processing
-    "PyMuPDF",
+    "pymupdf",
     "pdfplumber",
     # Debugging
     "debugpy>=1.8.12",
@@ -44,6 +44,8 @@ dependencies = [
     "boto3>=1.38.19",
     "virtualenvwrapper>=6.1.1",
     "bat>=0.3.9",
+    "pypdf>=5.5.0",
+    "json5>=0.12.0",
 ]
 
 [build-system]

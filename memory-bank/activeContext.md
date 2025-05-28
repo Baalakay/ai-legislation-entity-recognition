@@ -142,4 +142,14 @@ This plan describes how to process chunked legislative PDFs using Amazon Textrac
 - If Textract or the LLM fails on a chunk, retry or flag for manual review.
 
 ## Step 6: (Optional) Automation
-- Optionally, automate the entire pipeline (chunking → Textract → LLM → aggregation) as a batch process or serverless workflow. 
+- Optionally, automate the entire pipeline (chunking → Textract → LLM → aggregation) as a batch process or serverless workflow.
+
+# Active Context (as of latest update)
+
+- The pipeline now uses a specification-aligned LLM prompt to extract only the required fields for Index.csv:
+  - LEGNO, STATE, LEGTYPE, ADOPTION_DATE, CHAPTER/TITLE, LONG_TITLE, LONG_TITLE_SUMMARY, ARTICLE, SECTION, ACTION_CLASSIFICATION, DISPOSITION
+- Output is structured for easy CSV export, with only the requested fields and no extraneous data.
+- The prompt references the specification PDF for cues and patterns.
+- The system no longer attempts to extract text styles (strikethrough, underlined, red text).
+- All code and prompt logic is aligned with the projectbrief.md and the specification document.
+- The output is robust to LLM formatting errors and is ready for further downstream integration or export. 
