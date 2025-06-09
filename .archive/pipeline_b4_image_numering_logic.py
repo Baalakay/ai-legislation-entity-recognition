@@ -261,19 +261,20 @@ def process_pdf(pdf_path, chunk_dir=None, prompt=None, model_id="us.amazon.nova-
     prompt_dynamic += (
         "\nYou are a legislative document analysis assistant. Given the following page image from a legislative or ordinance document, extract ONLY the following fields as a JSON object or array (one object per legislative action if needed). Use the rules, patterns, and examples from the specification document 'AI Analyzing the Legislation and Extracting Data.pdf'. Return ONLY valid JSON. Do not include any explanation, preamble, or formatting outside the JSON object or array.\n"
         "\nFields to extract:\n"
-        "- LEGNO: Legislation number or identifier (e.g., '2025-04'), (e.g., 'No. 2 of 2025' from 'Ordinance No. 2 of 2025'). Only search for this on the first page/chunk; for subsequent pages, enter a blank value ('').\n"
+        "- LEGNO: Legislation number or identifier (e.g., '2025-04'). Only search for this on the first page/chunk; for subsequent pages, enter a blank value ('').\n"
         "- STATE: Output the official two-letter U.S. state abbreviation (e.g., 'RI' for Rhode Island) only if the full state name (e.g., 'Rhode Island') appears as a complete word anywhere in the document, including in legal citations, headers, or body text. Do NOT infer the state from city names, abbreviations, or context. If the state name appears in a legal citation (e.g., 'R.I. Gen. Laws'), treat this as a valid mention and output the corresponding two-letter abbreviation. If more than one state name is present, select the one that appears most frequently; if tied, use the first found. If no valid state name is found, output an empty string (''). Output only the two-letter abbreviation in uppercase (e.g., 'RI'), not the full name.\n"
         "- CITY/TOWN: City or Town (output only if explicitly mentioned on the page; never infer from context; search all chunks and use the value if found).\n"
         "- LEGTYPE: Legislation type (e.g., ordinance, resolution, bill, etc.). Only search for this on the first page/chunk; for subsequent pages, enter a blank value ('').\n"
         "- ADOPTION_DATE: Extract the adoption date only if it visually matches the attached example image (adoption_date_examples.jpg) and is clearly labeled as adopted, passed, approved, or enacted. Use the example image ONLY as a reference; do NOT extract any data from the example image itself. Do not extract vote tallies, numbers in parentheses, or unrelated dates. If no such date is found, return an empty string.\n"
-        "- CHAPTER/TITLE: The chapter or title number (e.g., '255' from 'CHAPTER 255 Nonconforming Development') or ('Chapter 07' from 'Section 4 of Chapter 07. 14'); 'Chapter' and 'Title' are interchangeable—extract whichever is present. Just provide the number in the response.\n"
+        "- CHAPTER/TITLE: The chapter or title number (e.g., '255' from 'CHAPTER 255 Nonconforming Development'); 'Chapter' and 'Title' are interchangeable—extract whichever is present. Only search for this on the first page/chunk; for subsequent pages, enter a blank value ('').\n"
         "- LONG_TITLE: The long title of the legislation (often all caps, near the top of the first image); if all caps, convert to sentence case. Only get from the first chunk_filename in the array (e.g. '2343853_1.jpg', and not '2343853_[2-30].jpg').\n"
-        "- LONG_TITLE_SUMMARY: Write a concise summary (2 to 6 words) that captures the main subject or action described in the LONG_TITLE field. Base the summary only on the extracted LONG_TITLE text; do not use information from other parts of the document. Use clear, specific language that reflects the core purpose or effect of the legislation. Avoid generic phrases (e.g., 'An ordinance' or 'A bill'); instead, focus on the unique topic or action (e.g., 'Rezoning residential lots' or 'Third-party billing procedures'). Output only for the first chunk/page containing the LONG_TITLE; for all others, output an empty string ('').\n"
-        "- ARTICLE: Examples:('VIII' from 'Article VIII, Chapter 255 - Zoning') or ('XII' from 'SECTION 1. Chapter 140, Article XII, Schedule IV') or ('1' from 'Article 1'). Be 99 percent confident. Do NOT extract from any strikethrough text. \n"
-        "- SECTION: (e.g., 'Section 1' from 'Section 1. The Town of' or 'Section 2' of 'Section 2. Amend § 1- 16 of the Code of Ordinances') or ('Section 4' of 'Section 4. That Section 07. 14.030 of Chapter 07. 14'). Do NOT extract if the section number itself is strikethrough text. Just provide the number in the response. \n"
+        "- LONG_TITLE_SUMMARY: Write a concise summary (2–6 words) that captures the main subject or action described in the LONG_TITLE field. Base the summary only on the extracted LONG_TITLE text; do not use information from other parts of the document. Use clear, specific language that reflects the core purpose or effect of the legislation. Avoid generic phrases (e.g., 'An ordinance' or 'A bill'); instead, focus on the unique topic or action (e.g., 'Rezoning residential lots' or 'Third-party billing procedures'). Output only for the first chunk/page containing the LONG_TITLE; for all others, output an empty string ('').\n"
+        "- ARTICLE: Article number or name (e.g., 'VIII' from 'Article VIII, Chapter 255 - Zoning'). Only extract if it appears in document titles, page/paragraph/section headers, or as an explicit heading. Do NOT extract from regular body text, lists of code citations, or any strikeout/strikethrough text. Ignore references not in a heading or title context. Only search for this on the first page/chunk; for subsequent pages, enter a blank value ('').\n"
+        "- SECTION: Only extract if it appears in document titles, page/paragraph/section headers, or as an explicit heading. Do NOT extract from regular body text, lists of code citations, or any strikeout/strikethrough text. (e.g., 'Section 1' from 'Section 1. The Town of' or 'Section 2' of 'Section 2. Amend § 1- 16 of the Code of Ordinances') Ignore references not in a heading or title context.\n"
         "- ACTION_CLASSIFICATION: One of Add, Amend, Repeal, or NCM (Non-Code Material). If any page or chunk has REDLINE marked as 'X', the aggregated ACTION_CLASSIFICATION for the document must be only 'Amend'. Do not include 'Add' if REDLINE is present anywhere in the document. If there is any evidence of amendment (e.g., redline, strikethrough, or language indicating changes to existing code), always classify as 'Amend' and do NOT classify as 'Add'. Only use 'Add' if the document is clearly introducing entirely new material, with no indication of amendment or redline. If in doubt, prefer 'Amend' over 'Add'. Only flag as NCM if it matches the definition in the specification document.\n"
-        "- DISPOSITION: The lowest level part of the legislative code hierarchy (e.g., '§1-16' from 'Section 1. Amend §1-16 of the Code of Ordinances'), or ('14.030' from 'Section 4. That Section 07. 14.030 of Chapter 07. 14'). Often begins with a '§' character. If multiple, separate with semicolons. Do not extract if the disposition itslef is strikethrough text. Always change the extracted input to the short form with the § symbol in the response. \n"
-        "- REDLINE: Mark REDLINE as 'X' only if you see text visually matching the attached example image (redline.jpg) under the 'Strikethrough' section. Use the example image ONLY as a reference; do NOT extract any data from the example image itself. DO NOT mark with an 'X' if it more visually matches the example images under the 'Not Strikethrough' section of example image (redline.jpg). Do not infer or assume strikethrough or redline from context or language. Do not extract if visually matches a hand-written signature or human-writing that overlaps words or lines. Do not extract if the strikethrough lines are vertical (only horizontal). \n"
+        "- DISPOSITION: Only extract if it appears in document titles, page/paragraph/section headers, or as an explicit heading. Do NOT extract from regular body text, lists of code citations, or any strikeout/strikethrough text. Ignore references not in a heading or title context. For each location in the Code affected by the legislation, extract the marker (e.g., '§1-16' from 'Section 1. Amend § 1- 16 of the Code of Ordinances'). If multiple, separate with semicolons.\n"
+        "- REDLINE: Mark REDLINE as 'X' only if you see text visually matching the attached example image (redline.jpg) under the 'Strikethrough' section. Use the example image ONLY as a reference; do NOT extract any data from the example image itself. Do not mark with an 'X' if it more visually matches the 'Not Strikethrough' section. Do not infer from context or language.\n"
+        "- EXAMPLES_SUMMARY: In addition to the above, return a field called EXAMPLES_SUMMARY containing a brief description of the two example images provided: (1) redline.jpg and (2) adoption_date_examples.jpg. For each, summarize what you see in the image in 1-2 sentences. This is to confirm you have received and processed the example images.\n"
         "\nAdditional Instructions:\n"
         "- Ignore line numbers or document metadata in all analysis and extracted values.\n"
         "- For multi-page documents, aggregate all chunk results into a single record. For fields with differing values across chunks, deduplicate case-insensitively and reason as a senior legislation, summarization, and date-identification specialist to select the correct value. For ARTICLE, SECTION, ACTION_CLASSIFICATION, and DISPOSITION, allow multiple values (separated by semicolons). Allow only a single value in all other fields, and if the value is a date, select the most recent date only. Output all fields in sentence case (except for dates and numbers). Convert roman numerals to whole numbers.\n"
@@ -327,50 +328,83 @@ def process_folder(folder_path, prompt, model_id="us.amazon.nova-pro-v1:0"):
     results = []
     for pdf_file in folder.glob("*.pdf"):
         result = process_pdf(pdf_file, chunk_dir=folder/"chunks", prompt=prompt, model_id=model_id)
+        # --- Begin aggregation logic ---
+        agg = {}
+        # Collect all keys from all chunks
+        all_keys = set()
+        for item in result["aggregated_results"]:
+            all_keys.update(item.keys())
+        # For each key, gather all non-empty, non-'None' values
+        for key in all_keys:
+            values = [str(item.get(key, '')).strip() for item in result["aggregated_results"]]
+            # Remove blanks and 'None' (case-insensitive)
+            values = [v for v in values if v and v.lower() != 'none']
+            # Deduplicate case-insensitively
+            seen = set()
+            unique_values = []
+            for v in values:
+                v_lower = v.lower()
+                if v_lower not in seen:
+                    seen.add(v_lower)
+                    # Remove qualifiers for LEGNO and CITY/TOWN
+                    if key == 'LEGNO':
+                        v = v.replace('No. ', '').replace('No ', '').strip()
+                    if key == 'CITY/TOWN':
+                        v = v.replace('Town of ', '').replace('Town Of ', '').strip()
+                    # Convert to title case, except roman numerals for ARTICLE
+                    if v:
+                        if key == 'ARTICLE' and v.isupper() and all(c in 'IVXLCDM' for c in v):
+                            v_s = v.upper()
+                        elif key == 'ARTICLE' and v.upper() == v and all(c in 'IVXLCDM' for c in v.upper()):
+                            v_s = v.upper()
+                        elif key == 'ARTICLE' and all(c in 'ivxlcdm' for c in v.lower()):
+                            v_s = v.upper()
+                        elif key == 'STATE':
+                            # Abbreviate state to two-letter code, all caps
+                            state_map = {
+                                'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR', 'california': 'CA', 'colorado': 'CO',
+                                'connecticut': 'CT', 'delaware': 'DE', 'florida': 'FL', 'georgia': 'GA', 'hawaii': 'HI', 'idaho': 'ID',
+                                'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA', 'kansas': 'KS', 'kentucky': 'KY', 'louisiana': 'LA',
+                                'maine': 'ME', 'maryland': 'MD', 'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN', 'mississippi': 'MS',
+                                'missouri': 'MO', 'montana': 'MT', 'nebraska': 'NE', 'nevada': 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ',
+                                'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC', 'north dakota': 'ND', 'ohio': 'OH', 'oklahoma': 'OK',
+                                'oregon': 'OR', 'pennsylvania': 'PA', 'rhode island': 'RI', 'south carolina': 'SC', 'south dakota': 'SD',
+                                'tennessee': 'TN', 'texas': 'TX', 'utah': 'UT', 'vermont': 'VT', 'virginia': 'VA', 'washington': 'WA',
+                                'west virginia': 'WV', 'wisconsin': 'WI', 'wyoming': 'WY',
+                                'district of columbia': 'DC', 'washington dc': 'DC', 'dc': 'DC'
+                            }
+                            v_norm = v.strip().lower()
+                            v_s = state_map.get(v_norm, v.upper() if len(v) == 2 else v.title())
+                        else:
+                            v_s = v.title()
+                    else:
+                        v_s = ''
+                    unique_values.append(v_s)
+            if not unique_values:
+                agg[key] = ''
+            elif len(unique_values) == 1:
+                agg[key] = unique_values[0]
+            else:
+                agg[key] = ','.join(f'({v})' for v in unique_values)
+        # Ensure all output values are blank string if empty or 'None'
+        for k in agg:
+            if not agg[k] or agg[k].lower() == 'none':
+                agg[k] = ''
         # Add LFID as the PDF name (without .pdf)
         lfid = Path(pdf_file).stem
         agg_ordered = {'LFID': lfid}
         ordered_keys = [
             'CITY/TOWN', 'STATE', 'LEGTYPE', 'LEGNO', 'ADOPTION_DATE',
             'LONG_TITLE_SUMMARY', 'ACTION_CLASSIFICATION',
-            'CHAPTER/TITLE', 'ARTICLE', 'SECTION', 'DISPOSITION', 'REDLINE'
+            'CHAPTER/TITLE', 'ARTICLE', 'SECTION', 'DISPOSITION', 'REDLINE',
+            'EXAMPLES_SUMMARY'
         ]
-        agg = result["aggregated_results"][0] if isinstance(result["aggregated_results"], list) and result["aggregated_results"] else {}
         agg_ordered.update({k: agg.get(k, '') for k in ordered_keys})
-        # Post-processing for ACTION_CLASSIFICATION, ADOPTION_DATE, and STATE output
-        if agg_ordered.get('REDLINE', '').strip().upper() == 'X':
-            agg_ordered['ACTION_CLASSIFICATION'] = 'Amend'
-        import re
-        date_str = agg_ordered.get('ADOPTION_DATE', '')
-        if date_str:
-            date_candidates = re.findall(r'(\d{4}-\d{2}-\d{2}|\d{1,2}/\d{1,2}/\d{2,4}|[A-Za-z]+ \d{1,2}, \d{4})', date_str)
-            parsed_dates = []
-            for d in date_candidates:
-                for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y", "%B %d, %Y", "%b %d, %Y"):
-                    try:
-                        parsed = datetime.datetime.strptime(d, fmt)
-                        parsed_dates.append((parsed, d))
-                        break
-                    except Exception:
-                        continue
-            if parsed_dates:
-                most_recent = max(parsed_dates, key=lambda x: x[0])[1]
-                agg_ordered['ADOPTION_DATE'] = most_recent
-            else:
-                agg_ordered['ADOPTION_DATE'] = ''
-        state_str = agg_ordered.get('STATE', '')
-        if state_str:
-            valid_states = set([
-                'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC'
-            ])
-            state_candidates = re.findall(r'\b([A-Z]{2})\b', state_str.upper())
-            filtered = [s for s in state_candidates if s in valid_states]
-            agg_ordered['STATE'] = filtered[0] if filtered else ''
-        if 'LONG_TITLE' in agg_ordered:
-            agg_ordered.pop('LONG_TITLE')
         result["aggregated_results"] = agg_ordered
         results.append(result)
+    # Write aggregated results to Excel in the root of the input directory
     df = pd.DataFrame([r["aggregated_results"] for r in results])
+    # Model short name mapping
     model_map = {
         'nova-micro': 'NovaMicro',
         'nova-lite': 'NovaLite',
@@ -389,11 +423,13 @@ def process_folder(folder_path, prompt, model_id="us.amazon.nova-pro-v1:0"):
                 return v
         return 'Model'
     model_short = get_model_short(model_id)
+    # Compose filename: index_<ParentDir>_<WorkingFolder>_<ModelShortName>_<DateTimestamp>.xlsx
     working_folder = folder.name
     parent_dir = folder.parent.name
     central = datetime.datetime.now(ZoneInfo("America/Chicago"))
     timestamp = central.strftime("%Y%m%d_%H%M")
     excel_filename = f"index_{parent_dir}_{working_folder}_{model_short}_{timestamp}.xlsx"
+    # Determine output directory based on parent_dir
     if parent_dir == 'Train':
         output_dir = Path('data/Train/.csv')
     elif parent_dir == 'Test':
@@ -403,6 +439,46 @@ def process_folder(folder_path, prompt, model_id="us.amazon.nova-pro-v1:0"):
     output_dir.mkdir(parents=True, exist_ok=True)
     excel_path = output_dir / excel_filename
     df.to_excel(excel_path, index=False)
+    # --- Post-processing for ACTION_CLASSIFICATION, ADOPTION_DATE, and STATE output ---
+    # 1. If REDLINE is 'X', set ACTION_CLASSIFICATION to only 'Amend'
+    if agg_ordered.get('REDLINE', '').strip().upper() == 'X':
+        agg_ordered['ACTION_CLASSIFICATION'] = 'Amend'
+    # 2. For ADOPTION_DATE, if multiple dates, keep only the most recent valid date
+    import re
+    date_str = agg_ordered.get('ADOPTION_DATE', '')
+    if date_str:
+        # Extract all date-like substrings
+        date_candidates = re.findall(r'(\d{4}-\d{2}-\d{2}|\d{1,2}/\d{1,2}/\d{2,4}|[A-Za-z]+ \d{1,2}, \d{4})', date_str)
+        parsed_dates = []
+        for d in date_candidates:
+            for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y", "%B %d, %Y", "%b %d, %Y"):
+                try:
+                    parsed = datetime.datetime.strptime(d, fmt)
+                    parsed_dates.append((parsed, d))
+                    break
+                except Exception:
+                    continue
+        if parsed_dates:
+            # Keep only the most recent date
+            most_recent = max(parsed_dates, key=lambda x: x[0])[1]
+            agg_ordered['ADOPTION_DATE'] = most_recent
+        else:
+            # If no valid date, blank
+            agg_ordered['ADOPTION_DATE'] = ''
+    # 3. For STATE, only output a valid US state abbreviation
+    state_str = agg_ordered.get('STATE', '')
+    if state_str:
+        # List of valid US state abbreviations
+        valid_states = set([
+            'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC'
+        ])
+        # Extract all two-letter uppercase codes
+        state_candidates = re.findall(r'\b([A-Z]{2})\b', state_str.upper())
+        filtered = [s for s in state_candidates if s in valid_states]
+        agg_ordered['STATE'] = filtered[0] if filtered else ''
+    # 4. Suppress LONG_TITLE from Excel output, but keep in data
+    if 'LONG_TITLE' in agg_ordered:
+        agg_ordered.pop('LONG_TITLE')
     return results
 
 if __name__ == "__main__":
@@ -410,5 +486,42 @@ if __name__ == "__main__":
         print("Usage: python pipeline.py <folder_path>")
         exit(1)
     folder_path = sys.argv[1]
-    output = process_folder(folder_path, None, model_id="us.amazon.nova-pro-v1:0")
+    prompt = (
+        "You will receive multiple images in this order:\n"
+        "- Images 1 to N: Legislative document pages to analyze and extract fields from.\n"
+        "- Images N+1 to N+M: Example images for reference only (not for extraction).\n"
+        "\n"
+        "--- BEGIN DOCUMENT IMAGES ---\n"
+        "[Images 1 to N: analyze and extract fields from these]\n"
+        "--- END DOCUMENT IMAGES ---\n"
+        "\n"
+        "--- BEGIN EXAMPLES ---\n"
+        "[Images N+1 to N+M: use only as visual reference for REDLINE and ADOPTION_DATE. Do NOT extract any fields from these.]\n"
+        "--- END EXAMPLES ---\n"
+        "\n"
+        "Extract the required fields ONLY from the document images. Ignore the example images for extraction. Use the example images ONLY as visual reference for REDLINE and ADOPTION_DATE.\n"
+        "\n"
+        "You are a legislative document analysis assistant. Given the following page image from a legislative or ordinance document, extract ONLY the following fields as a JSON object or array (one object per legislative action if needed). Use the rules, patterns, and examples from the specification document 'AI Analyzing the Legislation and Extracting Data.pdf'. Return ONLY valid JSON. Do not include any explanation, preamble, or formatting outside the JSON object or array.\n"
+        "\nFields to extract:\n"
+        "- LEGNO: Legislation number or identifier (e.g., '2025-04'). Only search for this on the first page/chunk; for subsequent pages, enter a blank value ('').\n"
+        "- STATE: Output the official two-letter U.S. state abbreviation (e.g., 'RI' for Rhode Island) only if the full state name (e.g., 'Rhode Island') appears as a complete word anywhere in the document, including in legal citations, headers, or body text. Do NOT infer the state from city names, abbreviations, or context. If the state name appears in a legal citation (e.g., 'R.I. Gen. Laws'), treat this as a valid mention and output the corresponding two-letter abbreviation. If more than one state name is present, select the one that appears most frequently; if tied, use the first found. If no valid state name is found, output an empty string (''). Output only the two-letter abbreviation in uppercase (e.g., 'RI'), not the full name.\n"
+        "- CITY/TOWN: City or Town (output only if explicitly mentioned on the page; never infer from context; search all chunks and use the value if found).\n"
+        "- LEGTYPE: Legislation type (e.g., ordinance, resolution, bill, etc.). Only search for this on the first page/chunk; for subsequent pages, enter a blank value ('').\n"
+        "- ADOPTION_DATE: Extract the adoption date only if it visually matches the attached example image (adoption_date_examples.jpg) and is clearly labeled as adopted, passed, approved, or enacted. Use the example image ONLY as a reference; do NOT extract any data from the example image itself. Do not extract vote tallies, numbers in parentheses, or unrelated dates. If no such date is found, return an empty string.\n"
+        "- CHAPTER/TITLE: The chapter or title number (e.g., '255' from 'CHAPTER 255 Nonconforming Development'); 'Chapter' and 'Title' are interchangeable—extract whichever is present. Only search for this on the first page/chunk; for subsequent pages, enter a blank value ('').\n"
+        "- LONG_TITLE: The long title of the legislation (often all caps, near the top of the first image); if all caps, convert to sentence case. Only get from the first chunk_filename in the array (e.g. '2343853_1.jpg', and not '2343853_[2-30].jpg').\n"
+        "- LONG_TITLE_SUMMARY: Write a concise summary (2–6 words) that captures the main subject or action described in the LONG_TITLE field. Base the summary only on the extracted LONG_TITLE text; do not use information from other parts of the document. Use clear, specific language that reflects the core purpose or effect of the legislation. Avoid generic phrases (e.g., 'An ordinance' or 'A bill'); instead, focus on the unique topic or action (e.g., 'Rezoning residential lots' or 'Third-party billing procedures'). Output only for the first chunk/page containing the LONG_TITLE; for all others, output an empty string ('').\n"
+        "- ARTICLE: Article number or name (e.g., 'VIII' from 'Article VIII, Chapter 255 - Zoning'). Only extract if it appears in document titles, page/paragraph/section headers, or as an explicit heading. Do NOT extract from regular body text, lists of code citations, or any strikeout/strikethrough text. Ignore references not in a heading or title context. Only search for this on the first page/chunk; for subsequent pages, enter a blank value ('').\n"
+        "- SECTION: Only extract if it appears in document titles, page/paragraph/section headers, or as an explicit heading. Do NOT extract from regular body text, lists of code citations, or any strikeout/strikethrough text. (e.g., 'Section 1' from 'Section 1. The Town of' or 'Section 2' of 'Section 2. Amend § 1- 16 of the Code of Ordinances') Ignore references not in a heading or title context.\n"
+        "- ACTION_CLASSIFICATION: One of Add, Amend, Repeal, or NCM (Non-Code Material). If any page or chunk has REDLINE marked as 'X', the aggregated ACTION_CLASSIFICATION for the document must be only 'Amend'. Do not include 'Add' if REDLINE is present anywhere in the document. If there is any evidence of amendment (e.g., redline, strikethrough, or language indicating changes to existing code), always classify as 'Amend' and do NOT classify as 'Add'. Only use 'Add' if the document is clearly introducing entirely new material, with no indication of amendment or redline. If in doubt, prefer 'Amend' over 'Add'. Only flag as NCM if it matches the definition in the specification document.\n"
+        "- DISPOSITION: Only extract if it appears in document titles, page/paragraph/section headers, or as an explicit heading. Do NOT extract from regular body text, lists of code citations, or any strikeout/strikethrough text. Ignore references not in a heading or title context. For each location in the Code affected by the legislation, extract the marker (e.g., '§1-16' from 'Section 1. Amend § 1- 16 of the Code of Ordinances'). If multiple, separate with semicolons.\n"
+        "- REDLINE: Mark REDLINE as 'X' only if you see text visually matching the attached example image (redline.jpg) under the 'Strikethrough' section. Use the example image ONLY as a reference; do NOT extract any data from the example image itself. Do not mark with an 'X' if it more visually matches the 'Not Strikethrough' section. Do not infer from context or language.\n"
+        "- EXAMPLES_SUMMARY: In addition to the above, return a field called EXAMPLES_SUMMARY containing a brief description of the two example images provided: (1) redline.jpg and (2) adoption_date_examples.jpg. For each, summarize what you see in the image in 1-2 sentences. This is to confirm you have received and processed the example images.\n"
+        "\nAdditional Instructions:\n"
+        "- Ignore line numbers or document metadata in all analysis and extracted values.\n"
+        "- For multi-page documents, aggregate all chunk results into a single record. For fields with differing values across chunks, deduplicate case-insensitively and reason as a senior legislation, summarization, and date-identification specialist to select the correct value. For ARTICLE, SECTION, ACTION_CLASSIFICATION, and DISPOSITION, allow multiple values (separated by semicolons). Allow only a single value in all other fields, and if the value is a date, select the most recent date only. Output all fields in sentence case (except for dates and numbers). Convert roman numerals to whole numbers.\n"
+        "- For multi-page documents, if more than one date is found, return only the ONE most recent date in the entire document (closest to today).\n"
+        "- For multi-page documents, if more than one LONG_TITLE_SUMMARY is found, return only the ONE from the first page of the entire document.\n"
+    )
+    output = process_folder(folder_path, prompt, model_id="us.amazon.nova-pro-v1:0")
     print(json.dumps(output, indent=2)) 
